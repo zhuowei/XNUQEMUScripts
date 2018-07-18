@@ -50,7 +50,7 @@ def writeproperty(nodebytes, nodeoffset, nodedepth):
 def printone(filename):
 	with open(filename, "rb") as infile:
 		indata = infile.read()
-	devicetreebytes = devicetreefromim4p(indata)
+	devicetreebytes = devicetreefromim4p(indata) if indata[0x7:0x7+4] == b"IM4P" else indata
 	writenode(devicetreebytes, 0, 0)
 
 if __name__ == "__main__":

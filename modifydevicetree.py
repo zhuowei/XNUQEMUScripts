@@ -18,6 +18,9 @@ def writenode(nodebytes, nodeoffset, nodedepth):
 		ptr += writenode(nodebytes, nodeoffset + ptr, nodedepth + 1)
 	return ptr
 
+def padStringNull(instr, lenstr=32):
+	return instr.encode("ascii") + b"\x00"*(lenstr - len(instr))
+
 def writeproperty(nodebytes, nodeoffset, nodedepth):
 	kPropNameLength = 32
 	propname = nodebytes[nodeoffset:nodeoffset + kPropNameLength].rstrip(b"\x00").decode("utf-8")
@@ -32,6 +35,14 @@ def writeproperty(nodebytes, nodeoffset, nodedepth):
 	if propname == "random-seed":
 		print("setting random seed")
 		w32(nodebytes, nodeoffset + ptr, 0xdeadf00d)
+	if propname == "dram-vendor-id":
+		print("Removing dram-vendor-id")
+		nodebytes[nodeoffset:nodeoffset + kPropNameLength] = padStringNull("chip-epoch")
+		nodebytes[nodeoffset + ptr:nodeoffset + ptr + proplen] = b"\x00" * proplen
+	if propname == "display-corner-radius":
+		print("Removing display-corner-radius")
+		nodebytes[nodeoffset:nodeoffset + kPropNameLength] = padStringNull("security-domain")
+		nodebytes[nodeoffset + ptr:nodeoffset + ptr + proplen] = b"\x00" * proplen
 	ptr += proplen
 	ptr = (ptr + 0x3) & ~0x3 #round up to nearest 4
 	return ptr
