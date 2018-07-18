@@ -1,4 +1,5 @@
 import sys
+from devicetreefromim4p import *
 # pexpert/pexpert/device_tree.h
 def u32(a, i):
 	return a[i] | a[i+1] << 8 | a[i+2] << 16 | a[i+3] << 24
@@ -49,7 +50,8 @@ def writeproperty(nodebytes, nodeoffset, nodedepth):
 def printone(filename):
 	with open(filename, "rb") as infile:
 		indata = infile.read()
-	writenode(indata, 0x3c, 0)
+	devicetreebytes = devicetreefromim4p(indata)
+	writenode(devicetreebytes, 0, 0)
 
 if __name__ == "__main__":
 	printone(sys.argv[1])
