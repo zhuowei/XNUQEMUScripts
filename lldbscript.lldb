@@ -14,4 +14,3 @@ print $pc=0xfffffff00743e438
 print $x0=1
 c
 DONE
-b *0xfffffff00743e834
