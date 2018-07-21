@@ -1,0 +1,8 @@
+At boot, XNU waits 30 seconds for an RTC device, using IOService::resourceMatching("IORTC") and waitForService.
+
+We patch the two calls to waitForService - the first in IOKitInitializeTime and the second in AppleARMPE::getGMTTimeOfDay to wait for 1 second instead.
+
+XNU also waits to check if the root device is secure in IOSecureBSDRoot with a call to pe->callPlatformFunction. This call hangs,
+so the last breakpoint breaks just before the call, skips it, and pretend it returned true.
+
+The included offsets are for the iPhone X iOS 12 beta 4 kernelcache.

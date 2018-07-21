@@ -1,0 +1,17 @@
+b *0xFFFFFFF007433BE8
+breakpoint command add
+print $x1=1000000000
+c
+DONE
+b *0xFFFFFFF005FA5D84
+breakpoint command add
+print ((uint32_t*)0xFFFFFFF0058083A8)[0] = 1
+c
+DONE
+b *0xfffffff00743e434
+breakpoint command add
+print $pc=0xfffffff00743e438
+print $x0=1
+c
+DONE
+b *0xfffffff00743e834
