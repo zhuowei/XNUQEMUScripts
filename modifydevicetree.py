@@ -1,8 +1,7 @@
 import sys
 from devicetreefromim4p import *
 
-#removeCompatibles = [b"aic,1", b"pmgr1,t8015", b"wdt,t8015\x00wdt,s5l8960x", b"gpio,t8015\x00gpio,s5l8960x", b"sochot,s5l8955x", b"tempsensor,t8015", b"aes,s8000"]
-keepCompatibles = [b"uart-1,samsung", b"D22AP\x00iPhone10,3\x00AppleARM"]
+keepCompatibles = [b"uart-1,samsung", b"D321AP\x00iPhone11,2\x00AppleARM"]
 removeNames = [b"wdt", b"backlight"]
 removeDeviceTypes = [b"wdt", b"backlight"]
 
@@ -58,6 +57,10 @@ def writeproperty(nodebytes, nodeoffset, nodedepth):
 	if propname == "device_type" and nodebytes[nodeoffset+ptr:nodeoffset+ptr+proplen-1] in removeDeviceTypes:
 		print("removing device type for", nodebytes[nodeoffset+ptr:nodeoffset+ptr+proplen-1].decode("ascii"))
 		nodebytes[nodeoffset+ptr] = ord("~")
+	if propname == "secure-root-prefix":
+		# Thanks to Aleph Security's xnu-qemu-arm64-scripts
+		print("Removing secure-root-prefix")
+		nodebytes[nodeoffset:nodeoffset + 1] = b"~"
 	ptr += proplen
 	ptr = (ptr + 0x3) & ~0x3 #round up to nearest 4
 	return ptr
