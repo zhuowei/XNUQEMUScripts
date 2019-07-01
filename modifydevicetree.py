@@ -26,7 +26,10 @@ def writenode(nodebytes, nodeoffset, nodedepth):
 def padStringNull(instr, lenstr=32):
 	return instr.encode("ascii") + b"\x00"*(lenstr - len(instr))
 
+bootCPUSet = False
+
 def writeproperty(nodebytes, nodeoffset, nodedepth):
+	global bootCPUSet
 	kPropNameLength = 32
 	propname = nodebytes[nodeoffset:nodeoffset + kPropNameLength].rstrip(b"\x00").decode("utf-8")
 	ptr = kPropNameLength
@@ -61,6 +64,11 @@ def writeproperty(nodebytes, nodeoffset, nodedepth):
 		# Thanks to Aleph Security's xnu-qemu-arm64-scripts
 		print("Removing secure-root-prefix")
 		nodebytes[nodeoffset:nodeoffset + 1] = b"~"
+	if not bootCPUSet and propname == "state" and nodebytes[nodeoffset+ptr:nodeoffset+ptr+proplen-1] == b"waiting":
+		# ml_parse_cpu_topology needs one to be set to running
+		print("setting boot CPU")
+		bootCPUSet = True
+		nodebytes[nodeoffset+ptr:nodeoffset+ptr+7] = b"running"
 	ptr += proplen
 	ptr = (ptr + 0x3) & ~0x3 #round up to nearest 4
 	return ptr
