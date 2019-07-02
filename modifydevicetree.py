@@ -69,6 +69,10 @@ def writeproperty(nodebytes, nodeoffset, nodedepth):
 		print("setting boot CPU")
 		bootCPUSet = True
 		nodebytes[nodeoffset+ptr:nodeoffset+ptr+7] = b"running"
+	if propname == "amfi-allows-trust-cache-load":
+		# iOS 13 needs this set. See the recovery environment tag in the device tree.
+		print("setting trust cache load")
+		nodebytes[nodeoffset+ptr] = 1
 	ptr += proplen
 	ptr = (ptr + 0x3) & ~0x3 #round up to nearest 4
 	return ptr
