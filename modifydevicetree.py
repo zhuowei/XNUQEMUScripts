@@ -1,7 +1,7 @@
 import sys
 from devicetreefromim4p import *
 
-keepCompatibles = [b"uart-1,samsung", b"D321AP\x00iPhone11,2\x00AppleARM"]
+keepCompatibles = [b"uart-1,samsung", b"D321AP\x00iPhone11,2\x00AppleARM", b"iop,ascwrap-v2", b"iop-nub,rtbuddy-v2", b"aic,1", b"arm-io,t8020"]
 removeNames = [b"wdt", b"backlight"]
 removeDeviceTypes = [b"wdt", b"backlight"]
 
