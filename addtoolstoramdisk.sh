@@ -3,6 +3,7 @@ set -e
 if [ -z "$1" ] || [ -z "$2" ]
 then
 	echo "Usage: ./addtoolstoramdisk.sh <path/to/048-62250-075.dmg> <path/to/dyld_shared_cache_arm64>"
+	exit 1
 fi
 
 # Download iOS prebuilt utils
@@ -50,13 +51,19 @@ echo "**utilities copied**"
 
 # Replace launch daemons
 
-sudo rm "$mountpath/System/Library/LaunchDaemons/"*
-sudo cp RamdiskPatches/com.apple.bash.plist "$mountpath/System/Library/LaunchDaemons/"
-sudo chown root "$mountpath/System/Library/LaunchDaemons/"*
+#sudo rm "$mountpath/System/Library/LaunchDaemons/"*
+#sudo cp RamdiskPatches/com.apple.bash.plist "$mountpath/System/Library/LaunchDaemons/"
+sudo cp RamdiskPatches/com.apple.restored_update.plist "$mountpath/System/Library/LaunchDaemons/"
+sudo chown root:wheel "$mountpath/System/Library/LaunchDaemons/"*
 echo "**launchdaemon modified - now generating hashes, please wait**"
+
+# YOLO
+
+# sudo cp -R "$mountpath/iosbinpack64/bin/bash" "$mountpath/sbin/launchd"
+sudo cp -R "$mountpath/usr/bin/sed" "$mountpath/iosbinpack64/bin/bash"
 
 # Generate hashes for trustcache
 
-./dumphashes.sh "$mountpath" >tchashes 2>/dev/null
+#./dumphashes.sh "$mountpath" >tchashes 2>/dev/null
 echo "**generated hashes in tchashes - use Aleph Security's script to convert to binary**"
 echo "**done**"
