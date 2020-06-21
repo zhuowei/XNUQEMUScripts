@@ -1,8 +1,8 @@
 import sys
 from devicetreefromim4p import *
 
-keepCompatibles = [b"uart-1,samsung", b"D321AP\x00iPhone11,2\x00AppleARM", b"iop,ascwrap-v2", b"iop-nub,rtbuddy-v2", b"aic,1", b"arm-io,t8020"]
-removeNames = [b"wdt", b"backlight"]
+keepCompatibles = [b"uart-1,samsung", b"D321AP\x00iPhone11,2\x00AppleARM", b"iop,ascwrap-v2", b"iop-nub,rtbuddy-v2", b"aic,1", b"arm-io,t8020", b"J421AP\x00iPad8,12\x00AppleARM"]
+removeNames = [b"wdt", b"backlight", b"dockchannel-uart"]
 removeDeviceTypes = [b"wdt", b"backlight"]
 
 # pexpert/pexpert/device_tree.h
