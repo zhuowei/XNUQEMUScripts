@@ -160,6 +160,9 @@ public class DTRewriter {
 		if (nodeName.equals("chosen")) {
 			node.properties.add(new DTProperty("security-domain", new byte[]{0x0, 0x0, 0x0, 0x0}));
 			node.properties.add(new DTProperty("chip-epoch", new byte[]{0x0, 0x0, 0x0, 0x0}));
+			// macOS 11 needs ram size: for virt this is 0x40000000, 0x180000000 (1GB base, 6GB size)
+			node.properties.add(new DTProperty("dram-base", new byte[]{0x0, 0x0, 0x0, 0x40, 0x0, 0x0, 0x0, 0x0}));
+			node.properties.add(new DTProperty("dram-size", new byte[]{0x0, 0x0, 0x0, (byte)0x80, 0x1, 0x0, 0x0, 0x0}));
 		}
 		// TODO(zhuowei): can't get the pmgr working
 		if (false && nodeName.equals("pmgr")) {
@@ -195,6 +198,26 @@ public class DTRewriter {
 					// the others seems to be provided by pmgr which i can't get working
 					node.properties.remove(i);
 				}
+			}
+		}
+		if (nodeName.equals("amcc")) {
+			// macOS 11 wants this
+			node.properties.add(new DTProperty("aperture-count", new byte[]{0x0, 0x0, 0x0, 0x0}));
+			node.properties.add(new DTProperty("aperture-size", new byte[]{0x0, 0x0, 0x0, 0x0}));
+			node.properties.add(new DTProperty("aperture-phys-addr", new byte[]{}));
+			node.properties.add(new DTProperty("plane-count", new byte[]{0x0, 0x0, 0x0, 0x0}));
+			node.properties.add(new DTProperty("cache-status-reg-offset", new byte[]{0x0, 0x0, 0x0, 0x0}));
+			node.properties.add(new DTProperty("cache-status-reg-mask", new byte[]{0x0, 0x0, 0x0, 0x0}));
+			node.properties.add(new DTProperty("cache-status-reg-value", new byte[]{0x0, 0x0, 0x0, 0x0}));
+		}
+		if (nodeName.equals("amcc-ctrr-a")) {
+			// macOS 11 wants this too
+			// 1 << 14 = 16KB (I don't think macOS actually cares though)
+			node.properties.add(new DTProperty("page-size-shift", new byte[]{0xe, 0x0, 0x0, 0x0}));
+			for (String n : Arrays.asList("lower-limit", "upper-limit", "lock", "enable", "write-enable")) {
+				node.properties.add(new DTProperty(n + "-reg-offset", new byte[]{0x0, 0x0, 0x0, 0x0}));
+				node.properties.add(new DTProperty(n + "-reg-mask", new byte[]{0x0, 0x0, 0x0, 0x0}));
+				node.properties.add(new DTProperty(n + "-reg-value", new byte[]{0x0, 0x0, 0x0, 0x0}));
 			}
 		}
 		for (DTNode n: node.children) {
