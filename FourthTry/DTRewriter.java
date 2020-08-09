@@ -167,6 +167,10 @@ public class DTRewriter {
 					throw new RuntimeException(e);
 				}
 			}
+			// enables PE_i_can_has_debugger for macOS 11
+			if (property.name.equals("debug-enabled")) {
+				property.value[0] = 1;
+			}
 		}
 		if (nodeName.equals("cpu0")) {
 			findProperty(node.properties, "state").value = "running\u0000".getBytes(StandardCharsets.UTF_8);
