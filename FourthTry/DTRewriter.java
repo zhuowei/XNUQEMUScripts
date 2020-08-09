@@ -181,6 +181,14 @@ public class DTRewriter {
 			// macOS 11 needs ram size: for virt this is 0x40000000, 0x180000000 (1GB base, 6GB size)
 			node.properties.add(new DTProperty("dram-base", new byte[]{0x0, 0x0, 0x0, 0x40, 0x0, 0x0, 0x0, 0x0}));
 			node.properties.add(new DTProperty("dram-size", new byte[]{0x0, 0x0, 0x0, (byte)0x80, 0x1, 0x0, 0x0, 0x0}));
+			// macOS 11: for cs_enforcement_disable, which calls csr_check
+			// CSR_ALLOW_KERNEL_DEBUGGER (1 << 3)
+			DTNode sipNode = new DTNode();
+			sipNode.properties = new ArrayList<DTProperty>();
+			sipNode.children = new ArrayList<DTNode>();
+			node.children.add(sipNode);
+			sipNode.properties.add(new DTProperty("lp-sip0", new byte[] {0x8, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}));
+			sipNode.properties.add(new DTProperty("name", "asmb\u0000".getBytes(StandardCharsets.UTF_8)));
 		}
 		// TODO(zhuowei): can't get the pmgr working
 		if (false && nodeName.equals("pmgr")) {

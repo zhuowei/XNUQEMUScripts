@@ -15,18 +15,6 @@ command
 print $pc=$pc+4
 c
 end
-# The next two are because I don't have a proper macOS rootFS
-# and I don't have support for trustcaches either
-# break in AMFI init, writes CSR_ALLOW_TASK_FOR_PID to SIP
-# so that csr_check(CSR_ALLOW_TASK_FOR_PID) returns true and
-# AMFI allows using
-# cs_enforcement_disable=1 amfi_get_out_of_my_way=1
-# I tried setting this from device tree using /chosen/asmb/lp-sip0 but it didn't work.
-b *0xfffffe00085b091c
-command
-print *((char*)0xfffffe000986231c) |= 8
-c
-end
 # break in check_for_signature, make it return true
 # so that it allows the invalidly signed iOS launchd to run
 b *0xfffffe0007c8c614
