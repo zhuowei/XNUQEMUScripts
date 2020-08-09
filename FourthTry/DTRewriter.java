@@ -153,6 +153,20 @@ public class DTRewriter {
 			if (property.name.equals("name")) {
 				nodeName = property.getStringValue();
 			}
+			if (property.name.equals("nvram-total-size")) {
+				// macOS 11: needs real NVRAM data in the device tree
+				// otherwise crashes when Img4 kext gets nonce-seeds
+				w32(property.value, 0x2000);
+			}
+			if (property.name.equals("nvram-proxy-data")) {
+				try {
+					// macOS 11: needs real NVRAM data in the device tree
+					// grab NVRAM data from https://gist.github.com/bazad/1faef1a6fe396b820a43170b43e38be1
+					property.value = Files.readAllBytes(Paths.get("nvrambin.bin"));
+				} catch (Exception e) {
+					throw new RuntimeException(e);
+				}
+			}
 		}
 		if (nodeName.equals("cpu0")) {
 			findProperty(node.properties, "state").value = "running\u0000".getBytes(StandardCharsets.UTF_8);
