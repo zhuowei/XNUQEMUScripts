@@ -8,7 +8,7 @@ IFS='
 '
 for i in $(find /System/Library/Extensions -name Info.plist)
 do
-	if grep -q "<string>Root</string>" "$i" && \
+	if egrep -q "<string>(Root|Console)</string>" "$i" && \
 		grep -q "<key>com.apple.iokit.IOACPIFamily</key>" "$i"
 	then
 		identifier=$(grep -A 1 -m 2 "CFBundleIdentifier" "$i" | \
