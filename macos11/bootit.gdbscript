@@ -1,23 +1,29 @@
 # addresses are for macOS 11 developer beta 3, with a boot kext collection generated using build_arm64e_kcache.sh
 target remote :1234
 # break on kprintf; enable kprintf
-b *0xfffffe0007effb20
+# fffffe00079938fc S _kprintf
+# plus the kernelcache offset (+0x5c8000)
+# set the flag it checks (disable_serial_output2) to false
+# since the debug bootarg only sets disable_serial_output which is or'd together with this
+b *0xfffffe0007f5b8fc
 command
-print *((char*)0xfffffe000987af78)=0
+print *((char*)0xfffffe00099f48c0)=0
 dis 1
 c
 end
 # break in bsd_init just before IOKitInitializeTime
 # skip the call since it tries to wait 30s for IORTC
 # but the timer emulation doesn't work so it freezes
-b *0xfffffe0007c569cc
+# Look for "Failed to allocate bsd pageable map" and the call is around there
+b *0xfffffe0007ca0e8c
 command
 print $pc=$pc+4
 c
 end
 # break in check_for_signature, make it return true
 # so that it allows the invalidly signed iOS launchd to run
-b *0xfffffe0007c8c614
+# look for "CS Platform Exec Logging"
+b *0xfffffe0007cd7728
 command
 print $pc=$lr
 print $x0=0
