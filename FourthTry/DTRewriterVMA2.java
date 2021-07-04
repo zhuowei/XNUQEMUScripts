@@ -4,7 +4,7 @@ import java.nio.charset.*;
 import java.nio.file.*;
 import java.util.*;
 
-public class DTRewriter {
+public class DTRewriterVMA2 {
 	public static class DTProperty {
 		public String name;
 		public byte[] value;
@@ -83,22 +83,54 @@ public class DTRewriter {
 	via provider->registerInterrupt
 	*/
 
-	public static Set<String> keepCompatibles = new HashSet<>(Arrays.asList(
-	/*"uart-1,samsung", "D321AP\0iPhone11,2\0AppleARM", "iop,ascwrap-v2", "iop-nub,rtbuddy-v2", "aic,1",
-        "arm-io,t8020", "J421AP\0iPad8,12\0AppleARM", "arm-io,t8027", "usb-drd,t8027", "usb3-phy,t8027",
-        "atc-phy,t8027", "iommu-mapper", "dart,t8020", "avd,t8020", "mca-switch,t8027", "pmgr1,t8027",
-	"apple,tempest\0ARM,v8", "apple,vortex\0ARM,v8"*/
-		"uart-1,samsung", "J421AP\0iPad8,12\0AppleARM", 
-		"arm-io,t8027", "aic,1",
-		"apple,tempest\0ARM,v8", "apple,vortex\0ARM,v8",
-		"apcie,t8027", "usb-drd,t8027"
+	public static Set<String> removeCompatibles = new HashSet<>(Arrays.asList(
+		"aes,s8000", "qemu,pvpanic-mmio", "paravirtualizedgraphics,iosurface", "paravirtualizedgraphics,gpu"
 	));
 	public static Set<String> removeNames = new HashSet<>(Arrays.asList(
-		"wdt", "backlight", "dockchannel-uart"
+		"pram", "vram"
 	));
 	public static Set<String> removeDeviceTypes = new HashSet<>(Arrays.asList(
-		"wdt", "backlight"
+		"pram", "vram"
 	));
+
+	public static Map<String, byte[]> alternativeRegs = makeAlternativeRegs();
+	private static Map<String, byte[]> makeAlternativeRegs() {
+		Map<String, byte[]> m = new HashMap<>();
+		// https://github.com/qemu/qemu/blob/711c0418c8c1ce3a24346f058b001c4c5a2f0f81/hw/arm/virt.c#L144
+		// all the peripherals are in 0x8000000
+		m.put("arm-io", i64bytes(0x0, 0x8000000, 0x20000000 - 0x8000000));
+		// These are relative to the above periphbase:
+		// https://github.com/qemu/qemu/blob/711c0418c8c1ce3a24346f058b001c4c5a2f0f81/hw/arm/virt.c#L144
+		// the size is 0x10000 because the apple one rounds it up for some reason...
+		m.put("uart0", i64bytes(0x9000000 - 0x8000000, 0x10000));
+		// https://github.com/matteyeux/darwin-xnu/blob/f96c754925a29fd61ad611fe49c565b8799a4921/pexpert/arm/pe_fiq.c#L100
+		// gicd_base, gicd_size, gicr_base, gicr_size
+		// https://github.com/qemu/qemu/blob/711c0418c8c1ce3a24346f058b001c4c5a2f0f81/hw/arm/virt.c#L135
+		// https://github.com/qemu/qemu/blob/711c0418c8c1ce3a24346f058b001c4c5a2f0f81/hw/arm/virt.c#L143
+		m.put("gic", i64bytes(0x8000000 - 0x8000000, 0x10000, 0x80a0000 - 0x8000000, 0xf60000));
+		m.put("rtc", i64bytes(0x9010000 - 0x8000000, 0x1000));
+		// https://github.com/qemu/qemu/blob/711c0418c8c1ce3a24346f058b001c4c5a2f0f81/hw/arm/virt.c#L147
+		// TODO(zhuowei): is there a GPIO-button mapping?
+		// TODO(zhuowei): interrupts??
+		// Mac has interrupts (8): 0x25
+		// QEMU has interrupts = < 0x00 0x07 0x04 >;
+		m.put("buttons", i64bytes(0x9030000 - 0x8000000, 0x1000));
+		// TODO(zhuowei): interrupts
+		// Mac has interrupts interrupt-base (4): 0x40
+		// QEMU has a massive interrupt map...
+		// TODO(zhuowei): update ranges
+		m.put("pcie", i64bytes(0x10000000 - 0x8000000, 0x10000000));
+		return m;
+	}
+	private static byte[] i64bytes(Object... args) {
+		byte[] bytes = new byte[args.length * 8];
+		ByteBuffer b = ByteBuffer.wrap(bytes);
+		for (Object a: args) {
+			b.putLong(((Number)a).longValue());
+		}
+		return bytes;
+	}
+
 	private static void clearProperty(DTProperty property) {
 		for (int i = 0; i < property.value.length - 1; i++) {
 			property.value[i] = '~';
@@ -130,7 +162,7 @@ public class DTRewriter {
 		for (int i = node.properties.size() - 1; i >= 0; i--) {
 			DTProperty property = node.properties.get(i);
 			if (property.name.equals("compatible") &&
-				!keepCompatibles.contains(property.getStringValue())) {
+				removeCompatibles.contains(property.getStringValue())) {
 				clearProperty(property);
 			}
 			if (property.name.equals("name") &&
@@ -144,9 +176,6 @@ public class DTRewriter {
 			if (property.name.equals("secure-root-prefix")) {
 				node.properties.remove(i);
 			}
-			if (property.name.equals("pll-fcal-bypass-code")) {
-				w32(property.value, 0x23456789);
-			}
 			if (property.name.equals("random-seed")) {
 				w32(property.value, 0xdeadf00d);
 			}
@@ -158,7 +187,8 @@ public class DTRewriter {
 				// otherwise crashes when Img4 kext gets nonce-seeds
 				w32(property.value, 0x2000);
 			}
-			if (property.name.equals("nvram-proxy-data")) {
+			// TODO(zhuowei): fix proxy data!
+			if (false && property.name.equals("nvram-proxy-data")) {
 				try {
 					// macOS 11: needs real NVRAM data in the device tree
 					// grab NVRAM data from https://gist.github.com/bazad/1faef1a6fe396b820a43170b43e38be1
@@ -190,60 +220,13 @@ public class DTRewriter {
 			sipNode.properties.add(new DTProperty("lp-sip0", new byte[] {0x8, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}));
 			sipNode.properties.add(new DTProperty("name", "asmb\u0000".getBytes(StandardCharsets.UTF_8)));
 		}
-		// TODO(zhuowei): can't get the pmgr working
-		if (false && nodeName.equals("pmgr")) {
-			for (int i = 0; i < 32; i++) {
-				node.properties.add(new DTProperty("bridge-settings-" + i, new byte[128]));
-			}
-			for (int i = 0; i < 16; i++) {
-				if (findProperty(node.properties, "voltage-states" + i) != null) continue;
-				// setting to all zeroes also seems to work?
-				node.properties.add(new DTProperty("voltage-states" + i,
-					findProperty(node.properties, "voltage-states0").value));
-			}
-		}
-		// TODO(zhuowei): does this get rid of the _phy error
-		if (false && nodeName.equals("usb-drd0")) {
-			/*for (int i = node.properties.size() - 1; i >= 0; i--) {
-				DTProperty property = node.properties.get(i);
-				if (property.name.equals("atc-phy-parent")) {
-					node.properties.remove(i);
-					break;
-				}
-			}*/
-			findProperty(node.properties, "atc-phy-parent").value[0] = 1;
-		}
-		if (nodeName.equals("cpu0")) {
+		if (alternativeRegs.get(nodeName) != null) {
 			for (int i = node.properties.size() - 1; i >= 0; i--) {
 				DTProperty property = node.properties.get(i);
-				String name = property.name;
-				if (name.startsWith("function-") && !name.startsWith("function-ipi_dispatch")) {
-					// not sure how to get AppleARMFunctions to work
-					// needed so cpu0 init succeeds, aic init needs cpu
-					// the ipi ones are necessary (it checks them)
-					// the others seems to be provided by pmgr which i can't get working
-					node.properties.remove(i);
+				if (property.name.equals("reg")) {
+					property.value = alternativeRegs.get(nodeName).clone();
+					break;
 				}
-			}
-		}
-		if (nodeName.equals("amcc")) {
-			// macOS 11 wants this
-			node.properties.add(new DTProperty("aperture-count", new byte[]{0x0, 0x0, 0x0, 0x0}));
-			node.properties.add(new DTProperty("aperture-size", new byte[]{0x0, 0x0, 0x0, 0x0}));
-			node.properties.add(new DTProperty("aperture-phys-addr", new byte[]{}));
-			node.properties.add(new DTProperty("plane-count", new byte[]{0x0, 0x0, 0x0, 0x0}));
-			node.properties.add(new DTProperty("cache-status-reg-offset", new byte[]{0x0, 0x0, 0x0, 0x0}));
-			node.properties.add(new DTProperty("cache-status-reg-mask", new byte[]{0x0, 0x0, 0x0, 0x0}));
-			node.properties.add(new DTProperty("cache-status-reg-value", new byte[]{0x0, 0x0, 0x0, 0x0}));
-		}
-		if (nodeName.equals("amcc-ctrr-a")) {
-			// macOS 11 wants this too
-			// 1 << 14 = 16KB (I don't think macOS actually cares though)
-			node.properties.add(new DTProperty("page-size-shift", new byte[]{0xe, 0x0, 0x0, 0x0}));
-			for (String n : Arrays.asList("lower-limit", "upper-limit", "lock", "enable", "write-enable")) {
-				node.properties.add(new DTProperty(n + "-reg-offset", new byte[]{0x0, 0x0, 0x0, 0x0}));
-				node.properties.add(new DTProperty(n + "-reg-mask", new byte[]{0x0, 0x0, 0x0, 0x0}));
-				node.properties.add(new DTProperty(n + "-reg-value", new byte[]{0x0, 0x0, 0x0, 0x0}));
 			}
 		}
 		for (DTNode n: node.children) {
