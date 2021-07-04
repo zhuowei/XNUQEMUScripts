@@ -94,37 +94,44 @@ public class DTRewriterVMA2 {
 	));
 
 	public static Map<String, byte[]> alternativeRegs = makeAlternativeRegs();
+	private static final long kPeriphbase = 0x8000000;
 	private static Map<String, byte[]> makeAlternativeRegs() {
 		Map<String, byte[]> m = new HashMap<>();
-		// https://github.com/qemu/qemu/blob/711c0418c8c1ce3a24346f058b001c4c5a2f0f81/hw/arm/virt.c#L144
-		// all the peripherals are in 0x8000000
-		m.put("arm-io", i64bytes(0x0, 0x8000000, 0x20000000 - 0x8000000));
-		// These are relative to the above periphbase:
+		// These are relative to the periphbase at 0x0:
 		// https://github.com/qemu/qemu/blob/711c0418c8c1ce3a24346f058b001c4c5a2f0f81/hw/arm/virt.c#L144
 		// the size is 0x10000 because the apple one rounds it up for some reason...
-		m.put("uart0", i64bytes(0x9000000 - 0x8000000, 0x10000));
+		m.put("uart0", i64bytes(0x9000000 - kPeriphbase, 0x10000));
 		// https://github.com/matteyeux/darwin-xnu/blob/f96c754925a29fd61ad611fe49c565b8799a4921/pexpert/arm/pe_fiq.c#L100
 		// gicd_base, gicd_size, gicr_base, gicr_size
 		// https://github.com/qemu/qemu/blob/711c0418c8c1ce3a24346f058b001c4c5a2f0f81/hw/arm/virt.c#L135
 		// https://github.com/qemu/qemu/blob/711c0418c8c1ce3a24346f058b001c4c5a2f0f81/hw/arm/virt.c#L143
-		m.put("gic", i64bytes(0x8000000 - 0x8000000, 0x10000, 0x80a0000 - 0x8000000, 0xf60000));
-		m.put("rtc", i64bytes(0x9010000 - 0x8000000, 0x1000));
+		m.put("gic", i64bytes(0x8000000 - kPeriphbase, 0x10000, 0x80a0000 - kPeriphbase, 0xf60000));
+		m.put("rtc", i64bytes(0x9010000 - kPeriphbase, 0x1000));
 		// https://github.com/qemu/qemu/blob/711c0418c8c1ce3a24346f058b001c4c5a2f0f81/hw/arm/virt.c#L147
 		// TODO(zhuowei): is there a GPIO-button mapping?
 		// TODO(zhuowei): interrupts??
 		// Mac has interrupts (8): 0x25
 		// QEMU has interrupts = < 0x00 0x07 0x04 >;
-		m.put("buttons", i64bytes(0x9030000 - 0x8000000, 0x1000));
+		m.put("buttons", i64bytes(0x9030000 - kPeriphbase, 0x1000));
 		// TODO(zhuowei): interrupts
 		// Mac has interrupts interrupt-base (4): 0x40
 		// QEMU has a massive interrupt map...
 		// TODO(zhuowei): update ranges
-		m.put("pcie", i64bytes(0x10000000 - 0x8000000, 0x10000000));
+		m.put("pcie", i64bytes(0x10000000 - kPeriphbase, 0x10000000));
+		return m;
+	}
+	public static Map<String, byte[]> alternativeRanges = makeAlternativeRanges();
+	private static Map<String, byte[]> makeAlternativeRanges() {
+		Map<String, byte[]> m = new HashMap<>();
+		// https://github.com/qemu/qemu/blob/711c0418c8c1ce3a24346f058b001c4c5a2f0f81/hw/arm/virt.c#L144
+		// all the peripherals are from 0x0 - 0x20000000
+		m.put("arm-io", i64bytes(0x0, kPeriphbase, 0x20000000 - kPeriphbase));
 		return m;
 	}
 	private static byte[] i64bytes(Object... args) {
 		byte[] bytes = new byte[args.length * 8];
 		ByteBuffer b = ByteBuffer.wrap(bytes);
+		b.order(ByteOrder.LITTLE_ENDIAN);
 		for (Object a: args) {
 			b.putLong(((Number)a).longValue());
 		}
@@ -211,20 +218,26 @@ public class DTRewriterVMA2 {
 			// macOS 11 needs ram size: for virt this is 0x40000000, 0x180000000 (1GB base, 6GB size)
 			node.properties.add(new DTProperty("dram-base", new byte[]{0x0, 0x0, 0x0, 0x40, 0x0, 0x0, 0x0, 0x0}));
 			node.properties.add(new DTProperty("dram-size", new byte[]{0x0, 0x0, 0x0, (byte)0x80, 0x1, 0x0, 0x0, 0x0}));
+		}
+		if (nodeName.equals("asmb")) {
 			// macOS 11: for cs_enforcement_disable, which calls csr_check
 			// CSR_ALLOW_KERNEL_DEBUGGER (1 << 3)
-			DTNode sipNode = new DTNode();
-			sipNode.properties = new ArrayList<DTProperty>();
-			sipNode.children = new ArrayList<DTNode>();
-			node.children.add(sipNode);
-			sipNode.properties.add(new DTProperty("lp-sip0", new byte[] {0x8, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}));
-			sipNode.properties.add(new DTProperty("name", "asmb\u0000".getBytes(StandardCharsets.UTF_8)));
+			node.properties.add(new DTProperty("lp-sip0", new byte[] {0x8, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}));
 		}
 		if (alternativeRegs.get(nodeName) != null) {
 			for (int i = node.properties.size() - 1; i >= 0; i--) {
 				DTProperty property = node.properties.get(i);
 				if (property.name.equals("reg")) {
 					property.value = alternativeRegs.get(nodeName).clone();
+					break;
+				}
+			}
+		}
+		if (alternativeRanges.get(nodeName) != null) {
+			for (int i = node.properties.size() - 1; i >= 0; i--) {
+				DTProperty property = node.properties.get(i);
+				if (property.name.equals("ranges")) {
+					property.value = alternativeRanges.get(nodeName).clone();
 					break;
 				}
 			}
